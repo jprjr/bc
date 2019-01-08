@@ -22,14 +22,12 @@
 
 scale=20
 define e(x){
-	auto b,s,n,r,d,i,p,f,v
-	b=ibase
+	auto n,r,d,i,p,f,v
 	ibase=A
 	if(x<0){
 		n=1
 		x=-x
 	}
-	s=scale
 	r=6+s+.44*x
 	scale=scale(x)+1
 	while(x>1){
@@ -48,21 +46,13 @@ define e(x){
 		r+=v
 	}
 	while(d--)r*=r
-	scale=s
-	ibase=b
 	if(n)return(1/r)
 	return(r/1)
 }
 define l(x){
-	auto b,s,r,p,a,q,i,v
-	b=ibase
+	auto r,p,a,q,i,v
 	ibase=A
-	if(x<=0){
-		r=(1-10^scale)/1
-		ibase=b
-		return(r)
-	}
-	s=scale
+	if(x<=0)return((1-10^scale)/1)
 	scale+=6
 	p=2
 	while(x>=2){
@@ -82,16 +72,12 @@ define l(x){
 		r+=v
 	}
 	r*=p
-	scale=s
-	ibase=b
 	return(r/1)
 }
 define s(x){
-	auto b,s,r,a,q,i
+	auto r,a,q,i
 	if(x<0)return(-s(-x))
-	b=ibase
 	ibase=A
-	s=scale
 	scale=1.1*s+2
 	a=a(1)
 	scale=0
@@ -105,24 +91,16 @@ define s(x){
 		a*=q/(i*(i-1))
 		r+=a
 	}
-	scale=s
-	ibase=b
 	return(r/1)
 }
 define c(x){
-	auto b,s
-	b=ibase
 	ibase=A
-	s=scale
 	scale*=1.2
 	x=s(2*a(1)+x)
-	scale=s
-	ibase=b
 	return(x/1)
 }
 define a(x){
-	auto b,s,r,n,a,m,t,f,i,u
-	b=ibase
+	auto r,n,a,m,t,f,i,u
 	ibase=A
 	n=1
 	if(x<0){
@@ -133,7 +111,6 @@ define a(x){
 		if(x==1)return(.7853981633974483096156608458198757210492923498437764552437361480/n)
 		if(x==.2)return(.1973955598498807583700497651947902934475851037878521015176889402/n)
 	}
-	s=scale
 	if(x>.2){
 		scale+=5
 		a=a(.2)
@@ -151,15 +128,11 @@ define a(x){
 		t=u/i
 		r+=t
 	}
-	scale=s
-	ibase=b
 	return((m*a+r)/n)
 }
 define j(n,x){
-	auto b,s,o,a,i,v,f
-	b=ibase
+	auto o,a,i,v,f
 	ibase=A
-	s=scale
 	scale=0
 	n/=1
 	if(n<0){
@@ -177,8 +150,6 @@ define j(n,x){
 		v=v*f/i/(n+i)
 		r+=v
 	}
-	scale=s
-	ibase=b
 	if(o)a=-a
 	return(a*r/1)
 }

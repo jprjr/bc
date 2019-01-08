@@ -25,7 +25,7 @@ define abs(x){
 	return x
 }
 define r(x,p){
-	auto i,t,n
+	auto t,n
 	if(x==0)return x
 	p=abs(p)$
 	n=(x<0)
@@ -35,10 +35,8 @@ define r(x,p){
 		if(n)t=-t
 		return t
 	}
-	i=ibase
 	ibase=A
 	if((x-t)>=(.5>>p))t+=1>>p
-	ibase=i
 	if(n)t=-t
 	return t
 }
@@ -62,30 +60,24 @@ define perm(n,k){
 	return f
 }
 define comb(n,r){
-	auto s,f,g,h
+	auto f,g,h
 	if(r>n)return 0
 	n=abs(n)$
 	r=abs(r)$
-	s=scale
 	scale=0
 	f=f(n)
 	h=f(r)
 	g=f(n-r)
 	f/=h*g
-	scale=s
 	return f
 }
 define log(x,b){
-	auto p,i,s
-	i=ibase
+	auto p
 	ibase=A
-	s=scale
 	if(scale<20)scale=20
 	if(scale(x)>scale)scale=scale(x)
 	scale*=2
 	p=l(x)/l(b)
-	scale=s
-	ibase=i
 	return p
 }
 define l2(x){
@@ -95,21 +87,16 @@ define l10(x){
 	return log(x,10)
 }
 define pi(s){
-	auto t,v
+	auto v
 	if(s==0)return 3
 	s=abs(s)$
-	t=scale
 	scale=s+1
 	v=4*a(1)
-	scale=t
 	return v@s
 }
 define void output(x,b){
-	auto b2
-	b2=obase
 	obase=b
 	x
-	obase=b2
 }
 define void hex(x){
 	output(x,G)
@@ -118,31 +105,26 @@ define void binary(x){
 	output(x,2)
 }
 define ubytes(x){
-	auto p,b,i
-	b=ibase
+	auto p,i
 	ibase=A
 	x=abs(x)$
 	i=2^8
 	for(p=1;i-1<x;p*=2){i*=i}
-	ibase=b
 	return p
 }
 define sbytes(x){
-	auto p,b,n,z
+	auto p,n,z
 	z=(x<0)
 	if(z)x=-x
 	x=x$
 	n=ubytes(x)
-	b=ibase
 	ibase=A
 	p=2^(n*8-1)
 	if(x>p||(!z&&x==p))n*=2
-	ibase=b
 	return n
 }
 define void output_byte(x,i){
-	auto j,p,y,b
-	j=ibase
+	auto p,y,b
 	ibase=A
 	s=scale
 	scale=0
@@ -155,32 +137,23 @@ define void output_byte(x,i){
 	for(i=y-p;i>0;--i) print 0
 	if(b)print b
 	scale=s
-	ibase=j
 }
 define void output_uint(x,n){
-	auto i,b
-	b=ibase
-	base=A
+	auto i
+	ibase=A
 	for(i=n-1;i>=0;--i){
 		output_byte(x,i)
 		if(i)print " "
 		else print "\n"
 	}
-	ibase=b
 }
 define void hex_uint(x,n){
-	auto o
-	o=obase
 	obase=G
 	output_uint(x,n)
-	obase=o
 }
 define void binary_uint(x,n){
-	auto o
-	o=obase
 	obase=2
 	output_uint(x,n)
-	obase=o
 }
 define void uintn(x,n){
 	if(scale(x)){
