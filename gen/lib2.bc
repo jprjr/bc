@@ -47,16 +47,14 @@ define f(n){
 	return r
 }
 define perm(n,k){
-	auto f,g,s
+	auto f,g
 	if(k>n)return 0
 	n=abs(n)$
 	k=abs(k)$
 	f=f(n)
 	g=f(n-k)
-	s=scale
 	scale=0
 	f/=g
-	scale=s
 	return f
 }
 define comb(n,r){
@@ -126,7 +124,6 @@ define sbytes(x){
 define void output_byte(x,i){
 	auto p,y,b
 	ibase=A
-	s=scale
 	scale=0
 	x=abs(x)$
 	b=x/(2^(i*8))
@@ -136,7 +133,6 @@ define void output_byte(x,i){
 	else p=b
 	for(i=y-p;i>0;--i) print 0
 	if(b)print b
-	scale=s
 }
 define void output_uint(x,n){
 	auto i
