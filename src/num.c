@@ -70,6 +70,7 @@ BcStatus bc_num_subArrays(BcDig *restrict a, const BcDig *restrict b, size_t len
 		for (a[i] -= b[i], j = 0; !BC_SIGNAL && a[i + j] < 0;) {
 			a[i + j++] += 10;
 			a[i + j] -= 1;
+			assert(a[i + j - 1] >= 0 && a[i + j - 1] < 10);
 		}
 	}
 	return BC_SIGNAL ? BC_STATUS_SIGNAL : BC_STATUS_SUCCESS;
@@ -176,7 +177,7 @@ void bc_num_retireMul(BcNum *restrict n, size_t scale, bool neg1, bool neg2) {
 	if (BC_NUM_NONZERO(n)) n->neg = (!neg1 != !neg2);
 }
 
-void bc_num_split(BcNum *restrict n, size_t idx, BcNum *restrict a, BcNum *restrict b) {
+void bc_num_split(const BcNum *restrict n, size_t idx, BcNum *restrict a, BcNum *restrict b) {
 
 	if (idx < n->len) {
 
@@ -290,13 +291,17 @@ BcStatus bc_num_a(BcNum *a, BcNum *b, BcNum *restrict c, size_t sub) {
 	for (carry = 0, i = 0; !BC_SIGNAL && i < min_rdx + min_int; ++i, ++c->len) {
 		in = ((unsigned int) ptr_a[i]) + ((unsigned int) ptr_b[i]) + carry;
 		carry = in / 10;
+		assert(carry >= 0 && carry < 10);
 		ptr_c[i] = (BcDig) (in % 10);
+		assert(ptr_c[i] >= 0 && ptr_c[i] < 10);
 	}
 
 	for (; !BC_SIGNAL && i < max + min_rdx; ++i, ++c->len) {
 		in = ((unsigned int) ptr[i]) + carry;
 		carry = in / 10;
+		assert(carry >= 0 && carry < 10);
 		ptr_c[i] = (BcDig) (in % 10);
+		assert(ptr_c[i] >= 0 && ptr_c[i] < 10);
 	}
 
 	if (carry) c->num[c->len++] = (BcDig) carry;
@@ -367,7 +372,7 @@ BcStatus bc_num_s(BcNum *a, BcNum *b, BcNum *restrict c, size_t sub) {
 	return s;
 }
 
-BcStatus bc_num_k(BcNum *a, BcNum *b, BcNum *restrict c) {
+BcStatus bc_num_k(const BcNum *a, const BcNum *b, BcNum *restrict c) {
 
 	BcStatus s;
 	size_t max = BC_MAX(a->len, b->len), max2 = (max + 1) / 2;
@@ -405,10 +410,13 @@ BcStatus bc_num_k(BcNum *a, BcNum *b, BcNum *restrict c) {
 				in += ((unsigned int) a->num[j]) * ((unsigned int) b->num[i]);
 				in += carry;
 				carry = in / 10;
+				assert(carry >= 0 && carry < 10);
 				c->num[i + j] = (BcDig) (in % 10);
+				assert(c->num[i + j] >= 0 && c->num[i + j] < 10);
 			}
 
 			c->num[i + j] += (BcDig) carry;
+			assert(c->num[i + j] >= 0 && c->num[i + j] < 10);
 			len = BC_MAX(len, i + j + !!carry);
 		}
 
@@ -866,10 +874,15 @@ void bc_num_parseDecimal(BcNum *restrict n, const char *restrict val) {
 	n->rdx = (size_t) ((ptr != NULL) * ((val + len) - (ptr + 1)));
 
 	if (!zero) {
-		for (i = len - 1; i < len; ++n->len, i -= 1 + (i && val[i - 1] == '.')) {
+		for (i = len - 1; i < len; ++n->len, --i) {
+
 			char c = val[i];
-			if (isupper(c)) c = '9';
-			n->num[n->len] = c - '0';
+
+			if (c == '.') n->len -= 1;
+			else {
+				if (isupper(c)) c = '9';
+				n->num[n->len] = c - '0';
+			}
 		}
 	}
 }
