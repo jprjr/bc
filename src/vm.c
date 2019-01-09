@@ -243,10 +243,6 @@ void bc_vm_clean() {
 	BcInstPtr *ip = bc_vec_item(&prog->stack, 0);
 	bool good = BC_IS_BC;
 
-#if BC_ENABLED
-	good = !good || !BC_PARSE_NO_EXEC(&vm->prs);
-#endif // BC_ENABLED
-
 #if DC_ENABLED
 	if (!good) {
 
@@ -254,7 +250,8 @@ void bc_vm_clean() {
 
 		for (i = 0; i < vm->prog.vars.len; ++i) {
 			BcVec *arr = bc_vec_item(&vm->prog.vars, i);
-			if (arr->len != 1) break;
+			BcNum *n = bc_vec_top(arr);
+			if (arr->len != 1 || BC_PROG_STR(n)) break;
 		}
 
 		if (i == vm->prog.vars.len) {
@@ -264,7 +261,7 @@ void bc_vm_clean() {
 				if (arr->len != 1) break;
 			}
 
-			good = i == vm->prog.arrs.len;
+			good = (i == vm->prog.arrs.len);
 		}
 	}
 #endif // DC_ENABLED
@@ -272,15 +269,19 @@ void bc_vm_clean() {
 	// If this condition is true, we can get rid of strings,
 	// constants, and code. This is an idea from busybox.
 	if (good && prog->stack.len == 1 && !prog->results.len &&
+#if BC_ENABLED
+	    !BC_PARSE_NO_EXEC(&vm->prs) &&
+#endif // BC_ENABLED
 	    ip->idx == f->code.len)
 	{
+#if BC_ENABLED
+		bc_vec_npop(&f->labels, f->labels.len);
+#endif // BC_ENABLED
 		bc_vec_npop(&f->strs, f->strs.len);
 		bc_vec_npop(&f->consts, f->consts.len);
 		bc_vec_npop(&f->code, f->code.len);
 		ip->idx = 0;
-#if DC_ENABLED
 		if (!BC_IS_BC) bc_vec_npop(fns, fns->len - BC_PROG_REQ_FUNCS);
-#endif // DC_ENABLED
 	}
 }
 
@@ -348,8 +349,8 @@ BcStatus bc_vm_stdin() {
 	// with a backslash to the parser. The reason for that is because the parser
 	// treats a backslash+newline combo as whitespace, per the bc spec. In that
 	// case, and for strings and comments, the parser will expect more stuff.
-	while (!done && (!(s = bc_read_line(&buf, ">>> ")) || buf.len > 1) &&
-	       !BC_SIGNAL && s != BC_STATUS_SIGNAL)
+	while (!done && (s = bc_read_line(&buf, ">>> ")) != BC_STATUS_ERROR &&
+	       buf.len > 1 && !BC_SIGNAL && s != BC_STATUS_SIGNAL)
 	{
 		char c2, *str = buf.v;
 		size_t i, len = buf.len - 1;
