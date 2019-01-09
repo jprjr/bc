@@ -103,6 +103,15 @@ char* bc_program_name(const char *restrict code, size_t *restrict bgn) {
 	return s;
 }
 
+void bc_program_prepGlobals(BcProgram *p) {
+	size_t val = BC_PROG_GLOBAL(&p->scale);
+	bc_vec_push(&p->scale, &val);
+	val = BC_PROG_GLOBAL(&p->ib_t);
+	bc_vec_push(&p->ib_t, &val);
+	val = BC_PROG_GLOBAL(&p->ob_t);
+	bc_vec_push(&p->ob_t, &val);
+}
+
 #if BC_ENABLE_REFERENCES
 BcVec* bc_program_dereference(BcProgram *p, BcVec *vec) {
 
@@ -426,6 +435,8 @@ BcStatus bc_program_read(BcProgram *p) {
 		s = bc_vm_err(BC_ERROR_EXEC_READ_EXPR);
 		goto exec_err;
 	}
+
+	bc_program_prepGlobals(p);
 
 	ip.func = BC_PROG_READ;
 	ip.idx = 0;
@@ -965,7 +976,7 @@ BcStatus bc_program_call(BcProgram *p, const char *restrict code,
 {
 	BcStatus s = BC_STATUS_SUCCESS;
 	BcInstPtr ip;
-	size_t i, val, nparams = bc_program_index(code, idx);
+	size_t i, nparams = bc_program_index(code, idx);
 	BcFunc *f;
 	BcVec *v;
 	BcId *a;
@@ -983,12 +994,7 @@ BcStatus bc_program_call(BcProgram *p, const char *restrict code,
 
 	assert(BC_PROG_STACK(&p->results, nparams));
 
-	val = BC_PROG_GLOBAL(&p->scale);
-	bc_vec_push(&p->scale, &val);
-	val = BC_PROG_GLOBAL(&p->ib_t);
-	bc_vec_push(&p->ib_t, &val);
-	val = BC_PROG_GLOBAL(&p->ob_t);
-	bc_vec_push(&p->ob_t, &val);
+	bc_program_prepGlobals(p);
 
 	for (i = 0; i < nparams; ++i) {
 
