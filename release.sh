@@ -283,7 +283,9 @@ minsize() {
 	runtests "$minsize" "$CC" "$run_tests"
 }
 
-cflags="-Wall -Wextra -pedantic -std=c99"
+cflags="-Weverything -Wno-padded -Wno-switch-enum -Wno-format-nonliteral"
+cflags="$cflags -Wno-cast-align -Wno-missing-noreturn -Wno-disabled-macro-expansion"
+cflags="$cflags -Wno-unreachable-code -Wall -Wextra -pedantic -std=c99"
 
 debug="$cflags -g -O0 -fno-omit-frame-pointer"
 release="$cflags -DNDEBUG -O3"
@@ -343,11 +345,9 @@ fi
 build "$release" "clang" "" make
 
 if [ "$run_tests" -ne 0 ]; then
+
 	karatsuba
 	vg
-fi
-
-if [ "$run_tests" -ne 0 ]; then
 
 	build "$release" "afl-gcc" "" make
 

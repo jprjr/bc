@@ -52,12 +52,12 @@ static const struct option bc_args_lopt[] = {
 
 static const char* const bc_args_opt = "e:f:hilqsvVwx";
 
-void bc_args_exprs(BcVec *exprs, const char *str) {
+static void bc_args_exprs(BcVec *exprs, const char *str) {
 	bc_vec_concat(exprs, str);
 	bc_vec_concat(exprs, "\n");
 }
 
-BcStatus bc_args_file(BcVec *exprs, const char *file) {
+static BcStatus bc_args_file(BcVec *exprs, const char *file) {
 
 	BcStatus s;
 	char *buf;
@@ -74,8 +74,7 @@ BcStatus bc_args_file(BcVec *exprs, const char *file) {
 BcStatus bc_args(int argc, char *argv[]) {
 
 	BcStatus s = BC_STATUS_SUCCESS;
-	int c, i;
-	char err = 0;
+	int c, i, err = 0;
 	bool do_exit = false;
 
 	i = optind = 0;
@@ -112,35 +111,45 @@ BcStatus bc_args(int argc, char *argv[]) {
 #if BC_ENABLED
 			case 'i':
 			{
+#if DC_ENABLED
 				if (!BC_IS_BC) err = c;
+#endif // DC_ENABLED
 				vm->flags |= BC_FLAG_I;
 				break;
 			}
 
 			case 'l':
 			{
+#if DC_ENABLED
 				if (!BC_IS_BC) err = c;
+#endif // DC_ENABLED
 				vm->flags |= BC_FLAG_L;
 				break;
 			}
 
 			case 'q':
 			{
+#if DC_ENABLED
 				if (!BC_IS_BC) err = c;
+#endif // DC_ENABLED
 				vm->flags |= BC_FLAG_Q;
 				break;
 			}
 
 			case 's':
 			{
+#if DC_ENABLED
 				if (!BC_IS_BC) err = c;
+#endif // DC_ENABLED
 				vm->flags |= BC_FLAG_S;
 				break;
 			}
 
 			case 'w':
 			{
+#if DC_ENABLED
 				if (!BC_IS_BC) err = c;
+#endif // DC_ENABLED
 				vm->flags |= BC_FLAG_W;
 				break;
 			}
@@ -157,7 +166,9 @@ BcStatus bc_args(int argc, char *argv[]) {
 #if DC_ENABLED
 			case 'x':
 			{
+#if BC_ENABLED
 				if (BC_IS_BC) err = c;
+#endif // BC_ENABLED
 				vm->flags |= DC_FLAG_X;
 				break;
 			}
@@ -176,7 +187,7 @@ BcStatus bc_args(int argc, char *argv[]) {
 		if (err && !s) {
 
 			for (i = 0; bc_args_lopt[i].name; ++i) {
-				if (bc_args_lopt[i].val == (int) err) break;
+				if (bc_args_lopt[i].val == err) break;
 			}
 
 			s = bc_vm_verr(BC_ERROR_VM_OPTION, err, bc_args_lopt[i].name);
