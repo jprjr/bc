@@ -169,8 +169,7 @@ static BcStatus bc_program_num(BcProgram *p, BcResult *r, BcNum **num) {
 		case BC_RESULT_CONSTANT:
 		{
 			char *str = bc_program_str(p, r->d.id.idx, false);
-			size_t len = strlen(str);
-			size_t val = BC_PROG_GLOBAL(&p->ib_t);
+			size_t len = strlen(str), val = BC_PROG_GLOBAL(&p->ib_t);
 
 			bc_num_init(n, len);
 
