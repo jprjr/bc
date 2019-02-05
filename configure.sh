@@ -26,7 +26,7 @@ usage() {
 		val=0
 	fi
 
-	printf 'usage: %s [-bD|-dB|-c] [-EgGhHRS] [-O OPT_LEVEL] [-k KARATSUBA_LEN]\n' "$0"
+	printf 'usage: %s [-bD|-dB|-c] [-EgGhHMRS] [-O OPT_LEVEL] [-k KARATSUBA_LEN]\n' "$0"
 	printf '\n'
 	printf '    -b\n'
 	printf '        Build bc only. It is an error if "-d" or "-B" are specified too.\n'
@@ -60,7 +60,9 @@ usage() {
 	printf '    -k KARATSUBA_LEN\n'
 	printf '        Set the karatsuba length to KARATSUBA_LEN (default is 32).\n'
 	printf '        It is an error if KARATSUBA_LEN is not a number or is less than 2.\n'
-	printf '        It is an error if \"-m\" is specified too.\n'
+	printf '        It is an error if "-m" is specified too.\n'
+	printf '    -M\n'
+	printf '        Disable installing manpages.\n'
 	printf '    -O OPT_LEVEL\n'
 	printf '        Set the optimization level. This can also be included in the CFLAGS,\n'
 	printf '        but it is provided, so maintainers can build optimized debug builds.\n'
@@ -75,16 +77,31 @@ usage() {
 	printf '\n'
 	printf 'In addition, the following environment variables are used:\n'
 	printf '\n'
-	printf '    CC        C compiler. Must be compatible with POSIX c99.\n'
-	printf '    HOSTCC    Host C compiler. Must be compatible with POSIX c99.\n'
-	printf '    CFLAGS    C compiler flags. You can use this for extra optimization flags.\n'
-	printf '    CPPFLAGS  C preprocessor flags.\n'
-	printf '    LDFLAGS   Linker flags.\n'
-	printf '    PREFIX    the prefix to install to. Default is /usr/local.\n'
-	printf '              If PREFIX is \"/usr\", install path will be \"/usr/bin\".\n'
-	printf '    DESTDIR   For package creation.\n'
-	printf '    GEN_EMU   Emulator to run string generator code under\n'
-	printf '              (leave empty if not necessary).\n'
+	printf '    CC           C compiler. Must be compatible with POSIX c99.\n'
+	printf '                 Default is "c99".\n'
+	printf '    HOSTCC       Host C compiler. Must be compatible with POSIX c99.\n'
+	printf '                 Default is "$CC".\n'
+	printf '    HOST_CC      Same as HOSTCC. If HOSTCC also exists, it is used.\n'
+	printf '    CFLAGS       C compiler flags.\n'
+	printf '    HOSTCFLAGS   CFLAGS for HOSTCC. Default is "$CFLAGS".\n'
+	printf '    HOST_CFLAGS  Same as HOST_CFLAGS. If HOST_CFLAGS also exists, it is used.\n'
+	printf '    CPPFLAGS     C preprocessor flags. Default is "".\n'
+	printf '    LDFLAGS      Linker flags. Default is "".\n'
+	printf '    PREFIX       The prefix to install to. Default is "/usr/local".\n'
+	printf '                 If PREFIX is "/usr", install path will be "/usr/bin".\n'
+	printf '    BINDIR       The directory to install binaries. Default is "$PREFIX/bin".\n'
+	printf '    DATAROOTDIR  The root location for data files. Default is "$PREFIX/share".\n'
+	printf '    DATADIR      The location for data files. Default is "$DATAROOTDIR".\n'
+	printf '    MANDIR       The location to install manpages to. Default is "$DATADIR/man".\n'
+	printf '    MAN1DIR      The location to install Section 1 manpages to. Default is\n'
+	printf '                 "$MANDIR/man1".\n'
+	printf '    EXECSUFFIX   The suffix to append to the executable names, used to not\n'
+	printf '                 interfere with other installed bc executables. This can only\n'
+	printf '                 be a suffix because bc uses the first letter of the executable\n'
+	printf '                 name to switch between bc and dc. Default is "".\n'
+	printf '    DESTDIR      For package creation. Default is "".\n'
+	printf '    GEN_EMU      Emulator to run string generator code under\n'
+	printf '                 (leave empty if not necessary). Default is "".\n'
 
 	exit "$val"
 }
@@ -211,8 +228,9 @@ refs=1
 extra_math=1
 optimization=""
 generate_tests=1
+install_manpages=1
 
-while getopts "bBcdDEgGhHk:O:RS" opt; do
+while getopts "bBcdDEgGhHk:MO:RS" opt; do
 
 	case "$opt" in
 		b) bc_only=1 ;;
@@ -226,6 +244,7 @@ while getopts "bBcdDEgGhHk:O:RS" opt; do
 		h) usage ;;
 		H) hist=0 ;;
 		k) karatsuba_len="$OPTARG" ;;
+		M) install_manpages=0 ;;
 		O) optimization="$OPTARG" ;;
 		R) refs=0 ;;
 		S) signals=0 ;;
@@ -290,6 +309,10 @@ if [ "$bc_only" -eq 1 ]; then
 	dc_test="@printf 'No dc tests to run\\\\n'"
 	vg_dc_test="@printf 'No dc tests to run\\\\n'"
 
+	install_prereqs=" install_bc_manpage"
+	uninstall_prereqs=" uninstall_bc"
+	uninstall_man_prereqs=" uninstall_bc_manpage"
+
 elif [ "$dc_only" -eq 1 ]; then
 
 	bc=0
@@ -310,6 +333,10 @@ elif [ "$dc_only" -eq 1 ]; then
 
 	timeconst="@printf 'timeconst cannot be run because bc is not built\\\\n'"
 
+	install_prereqs=" install_dc_manpage"
+	uninstall_prereqs=" uninstall_dc"
+	uninstall_man_prereqs=" uninstall_dc_manpage"
+
 else
 
 	bc=1
@@ -322,6 +349,16 @@ else
 	karatsuba="@\$(KARATSUBA)"
 	karatsuba_test="@\$(KARATSUBA) 100 \$(BC_EXEC)"
 
+	install_prereqs=" install_bc_manpage install_dc_manpage"
+	uninstall_prereqs=" uninstall_bc uninstall_dc"
+	uninstall_man_prereqs=" uninstall_bc_manpage uninstall_dc_manpage"
+
+fi
+
+if [ "$HOSTCFLAGS" = "" -a "$HOST_CFLAGS" = "" ]; then
+	HOSTCFLAGS="$CFLAGS"
+elif [ "$HOSTCFLAGS" = "" ]; then
+	HOSTCFLAGS="$HOST_CFLAGS"
 fi
 
 if [ "$debug" -eq 1 ]; then
@@ -334,9 +371,7 @@ if [ "$debug" -eq 1 ]; then
 
 else
 	CPPFLAGS="$CPPFLAGS -DNDEBUG"
-	if [ "$bc" -ne 0 -a "$dc" -ne 0 ]; then
-		link="$link 1"
-	fi
+	LDFLAGS="$LDFLAGS -s"
 fi
 
 if [ "$optimization" != "" ]; then
@@ -366,12 +401,41 @@ if [ "$PREFIX" = "" ]; then
 	PREFIX="/usr/local"
 fi
 
+if [ "$BINDIR" = "" ]; then
+	BINDIR="$PREFIX/bin"
+fi
+
+if [ "$install_manpages" -ne 0 ]; then
+
+	if [ "$DATAROOTDIR" = "" ]; then
+		DATAROOTDIR="$PREFIX/share"
+	fi
+
+	if [ "$DATADIR" = "" ]; then
+		DATADIR="$DATAROOTDIR"
+	fi
+
+	if [ "$MANDIR" = "" ]; then
+		MANDIR="$DATADIR/man"
+	fi
+
+	if [ "$MAN1DIR" = "" ]; then
+		MAN1DIR="$MANDIR/man1"
+	fi
+
+else
+	install_prereqs=""
+	uninstall_man_prereqs=""
+fi
+
 if [ "$CC" = "" ]; then
 	CC="c99"
 fi
 
-if [ "$HOSTCC" = "" ]; then
+if [ "$HOSTCC" = "" -a "$HOST_CC" = "" ]; then
 	HOSTCC="$CC"
+elif [ "$HOSTCC" = "" ]; then
+	HOSTCC="$HOST_CC"
 fi
 
 if [ "$hist" -eq 1 ]; then
@@ -408,6 +472,23 @@ else
 	BC_LIB2_O=""
 fi
 
+printf '\n'
+printf 'CC=%s\n' "$CC"
+printf 'CFLAGS=%s\n' "$CFLAGS"
+printf 'HOSTCC=%s\n' "$HOSTCC"
+printf 'HOSTCFLAGS=%s\n' "$HOSTCFLAGS"
+printf 'CPPFLAGS=%s\n' "$CPPFLAGS"
+printf 'LDFLAGS=%s\n' "$LDFLAGS"
+printf 'PREFIX=%s\n' "$PREFIX"
+printf 'BINDIR=%s\n' "$BINDIR"
+printf 'DATAROOTDIR=%s\n' "$DATAROOTDIR"
+printf 'DATADIR=%s\n' "$DATADIR"
+printf 'MANDIR=%s\n' "$MANDIR"
+printf 'MAN1DIR=%s\n' "$MAN1DIR"
+printf 'EXECSUFFIX=%s\n' "$EXECSUFFIX"
+printf 'DESTDIR=%s\n' "$DESTDIR"
+printf 'GEN_EMU=%s\n' "$GEN_EMU"
+
 contents=$(cat "$scriptdir/Makefile.in")
 
 needle="WARNING"
@@ -434,15 +515,21 @@ contents=$(replace "$contents" "DC_HELP_O" "$dc_help")
 contents=$(replace "$contents" "BC_LIB2_O" "$BC_LIB2_O")
 contents=$(replace "$contents" "KARATSUBA_LEN" "$karatsuba_len")
 
-contents=$(replace "$contents" "PREFIX" "$PREFIX")
 contents=$(replace "$contents" "DESTDIR" "$DESTDIR")
+contents=$(replace "$contents" "EXECSUFFIX" "$EXECSUFFIX")
+contents=$(replace "$contents" "BINDIR" "$BINDIR")
+contents=$(replace "$contents" "MAN1DIR" "$MAN1DIR")
 contents=$(replace "$contents" "CFLAGS" "$CFLAGS")
+contents=$(replace "$contents" "HOSTCFLAGS" "$HOSTCFLAGS")
 contents=$(replace "$contents" "CPPFLAGS" "$CPPFLAGS")
 contents=$(replace "$contents" "LDFLAGS" "$LDFLAGS")
 contents=$(replace "$contents" "CC" "$CC")
 contents=$(replace "$contents" "HOSTCC" "$HOSTCC")
 contents=$(replace "$contents" "COVERAGE" "$COVERAGE")
 contents=$(replace "$contents" "COVERAGE_PREREQS" "$COVERAGE_PREREQS")
+contents=$(replace "$contents" "INSTALL_PREREQS" "$install_prereqs")
+contents=$(replace "$contents" "UNINSTALL_MAN_PREREQS" "$uninstall_man_prereqs")
+contents=$(replace "$contents" "UNINSTALL_PREREQS" "$uninstall_prereqs")
 
 contents=$(replace "$contents" "EXECUTABLES" "$executables")
 contents=$(replace "$contents" "MAIN_EXEC" "$main_exec")

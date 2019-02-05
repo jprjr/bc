@@ -77,7 +77,7 @@ BcStatus bc_lex_number(BcLex *l, char start) {
 	const char *buf = l->buf + l->i;
 	size_t i;
 	char last_valid, c;
-	bool last_pt = (start == '.'), pt;
+	bool last_pt, pt = (start == '.');
 
 	l->t = BC_LEX_NUMBER;
 	last_valid = BC_IS_BC ? 'Z' : 'F';
@@ -85,31 +85,33 @@ BcStatus bc_lex_number(BcLex *l, char start) {
 	bc_vec_npop(&l->str, l->str.len);
 	bc_vec_push(&l->str, &start);
 
-	for (i = 0; (c = buf[i]) && (BC_LEX_NUM_CHAR(c, last_valid, last_pt) ||
+	for (i = 0; (c = buf[i]) && (BC_LEX_NUM_CHAR(c, last_valid, pt) ||
 	                             (c == '\\' && buf[i + 1] == '\n')); ++i)
 	{
-		if (c != '\\') {
-			pt = (c == '.');
-			if (pt && last_pt) break;
-			last_pt = last_pt || pt;
+		if (c == '\\') {
+
+			if (buf[i + 1] == '\n') {
+
+				i += 2;
+
+				// Make sure to eat whitespace at the beginning of the line.
+				while(isspace(buf[i]) && buf[i] != '\n') ++i;
+
+				c = buf[i];
+
+				if (!BC_LEX_NUM_CHAR(c, last_valid, pt)) break;
+			}
+			else break;
 		}
-		else if (buf[i + 1] == '\n') {
 
-			i += 2;
-
-			// Make sure to eat whitespace at the beginning of the line.
-			while(isspace(buf[i]) && buf[i] != '\n') ++i;
-
-			c = buf[i];
-
-			if (!BC_LEX_NUM_CHAR(c, last_valid, last_pt)) break;
-		}
-		else break;
+		last_pt = (c == '.');
+		if (pt && last_pt) break;
+		pt = pt || last_pt;
 
 		bc_vec_push(&l->str, &c);
 	}
 
-	if (l->str.len > BC_MAX_NUM)
+	if (l->str.len - pt > BC_MAX_NUM)
 		return bc_lex_verr(l, BC_ERROR_EXEC_NUM_LEN, BC_MAX_NUM);
 
 	bc_vec_pushByte(&l->str, '\0');
@@ -162,7 +164,7 @@ BcStatus bc_lex_next(BcLex *l) {
 	assert(l);
 
 	l->last = l->t;
-	l->line += l->last == BC_LEX_NLINE;
+	l->line += (l->i != 0 && l->buf[l->i - 1] == '\n');
 
 	if (l->last == BC_LEX_EOF) return bc_lex_err(l, BC_ERROR_PARSE_EOF);
 

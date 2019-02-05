@@ -28,6 +28,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include <sys/types.h>
+
 #include <status.h>
 
 typedef signed char BcDig;
@@ -63,21 +65,22 @@ typedef struct BcNum {
 #define BC_NUM_ZERO(n) (!BC_NUM_NONZERO(n))
 #define BC_NUM_ONE(n) ((n)->len == 1 && (n)->rdx == 0 && (n)->num[0] == 1)
 #define BC_NUM_INT(n) ((n)->len - (n)->rdx)
-#define BC_NUM_CMP_ZERO(a) (BC_NUM_NEG(!!(a)->len, (a)->neg))
-#define BC_NUM_AREQ(a, b) \
-	(BC_MAX((a)->rdx, (b)->rdx) + BC_MAX(BC_NUM_INT(a), BC_NUM_INT(b)) + 1)
-#define BC_NUM_MREQ(a, b, scale) \
-	(BC_NUM_INT(a) + BC_NUM_INT(b) + BC_MAX((scale), (a)->rdx + (b)->rdx) + 1)
+#define BC_NUM_CMP_ZERO(a) (BC_NUM_NEG((a)->len != 0, (a)->neg))
+#define BC_NUM_PREQ(a, b) ((a)->len + (b)->len + 1)
+#define BC_NUM_SHREQ(a) ((a)->len)
 
 #define BC_NUM_NUM_LETTER(c) ((c) - 'A' + 10)
 
 typedef BcStatus (*BcNumBinaryOp)(BcNum*, BcNum*, BcNum*, size_t);
+typedef size_t (*BcNumBinaryOpReq)(BcNum*, BcNum*, size_t);
 typedef void (*BcNumDigitOp)(size_t, size_t, bool);
 
 void bc_num_init(BcNum *n, size_t req);
 void bc_num_setup(BcNum *n, BcDig *num, size_t cap);
 void bc_num_expand(BcNum *n, size_t req);
 void bc_num_copy(BcNum *d, const BcNum *s);
+void bc_num_createCopy(BcNum *d, const BcNum *s);
+void bc_num_createFromUlong(BcNum *n, unsigned long val);
 void bc_num_free(void *num);
 
 BcStatus bc_num_ulong(const BcNum *n, unsigned long *result);
@@ -96,6 +99,14 @@ BcStatus bc_num_rshift(BcNum *a, BcNum *b, BcNum *c, size_t scale);
 #endif // BC_ENABLE_EXTRA_MATH
 BcStatus bc_num_sqrt(BcNum *restrict a, BcNum *restrict b, size_t scale);
 BcStatus bc_num_divmod(BcNum *a, BcNum *b, BcNum *c, BcNum *d, size_t scale);
+
+size_t bc_num_addReq(BcNum *a, BcNum *b, size_t scale);
+
+size_t bc_num_mulReq(BcNum *a, BcNum *b, size_t scale);
+size_t bc_num_powReq(BcNum *a, BcNum *b, size_t scale);
+#if BC_ENABLE_EXTRA_MATH
+size_t bc_num_shiftReq(BcNum *a, BcNum *b, size_t scale);
+#endif // BC_ENABLE_EXTRA_MATH
 
 // ** Exclude start. **
 // ** Busybox exclude start. **

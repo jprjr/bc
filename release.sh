@@ -15,7 +15,7 @@
 #
 
 usage() {
-	printf 'usage: %s [run_tests] [test_with_gcc] [toybox_repo]\n' "$script"
+	printf 'usage: %s [run_tests] [test_with_gcc]\n' "$script"
 	exit 1
 }
 
@@ -31,6 +31,10 @@ header() {
 	printf '\n'
 }
 
+do_make() {
+	make -j4 "$@"
+}
+
 configure() {
 
 	local CFLAGS="$1"
@@ -41,6 +45,10 @@ configure() {
 
 	local configure_flags="$1"
 	shift
+
+	if [ "$CC" = "clang" ]; then
+		CFLAGS="$clang_flags $CFLAGS"
+	fi
 
 	header "Running \"./configure.sh $configure_flags\" with CC=\"$CC\" and CFLAGS=\"$CFLAGS\""
 	CFLAGS="$CFLAGS" CC="$CC" ./configure.sh $configure_flags > /dev/null
@@ -62,7 +70,7 @@ build() {
 
 	header "Building with CC=\"$CC\" and CFLAGS=\"$CFLAGS\""
 
-	make > /dev/null 2> "$scriptdir/.test.txt"
+	do_make > /dev/null 2> "$scriptdir/.test.txt"
 
 	if [ -s "$scriptdir/.test.txt" ]; then
 		printf '%s generated warning(s):\n' "$CC"
@@ -77,14 +85,9 @@ runtest() {
 	header "Running tests"
 
 	if [ "$#" -gt 0 ]; then
-
-		exe="$1"
-		shift
-
-		"$exe" "$@"
-
+		do_make "$@"
 	else
-		make test_all
+		do_make test
 	fi
 }
 
@@ -113,21 +116,21 @@ runconfigtests() {
 		runtest
 	fi
 
-	make clean
+	do_make clean
 
 	build "$CFLAGS" "$CC" "$configure_flags -b"
 	if [ "$run_tests" -ne 0 ]; then
 		runtest
 	fi
 
-	make clean
+	do_make clean
 
 	build "$CFLAGS" "$CC" "$configure_flags -d"
 	if [ "$run_tests" -ne 0 ]; then
 		runtest
 	fi
 
-	make clean
+	do_make clean
 }
 
 runtestseries() {
@@ -176,7 +179,7 @@ runtests() {
 karatsuba() {
 
 	header "Running Karatsuba tests"
-	make karatsuba_test
+	do_make karatsuba_test
 }
 
 vg() {
@@ -184,53 +187,19 @@ vg() {
 	header "Running valgrind"
 
 	build "$reldebug" "$CC" "-g"
-	runtest make valgrind
+	runtest valgrind
 
-	make clean_config
+	do_make clean_config
 
 	build "$reldebug" "$CC" "-gb"
-	runtest make valgrind
+	runtest valgrind
 
-	make clean_config
+	do_make clean_config
 
 	build "$reldebug" "$CC" "-gd"
-	runtest make valgrind
+	runtest valgrind
 
-	make clean_config
-}
-
-build_dist() {
-
-	local project="$1"
-	shift
-
-	local bc="$1"
-	shift
-
-	local repo="$1"
-	shift
-
-	header "Building and testing $project"
-
-	dist/release.py "$project" "$repo"
-
-	d=$(pwd)
-
-	cd "$repo"
-	make clean
-	make
-
-	cd "$d"
-}
-
-toybox() {
-
-	toybox_bc="$toybox_repo/generated/unstripped/toybox"
-
-	build_dist toybox "$toybox_bc" "$toybox_repo"
-
-	runtest tests/all.sh bc 0 0 1 "$toybox_bc" bc
-	runtest tests/bc/timeconst.sh tests/bc/scripts/timeconst.bc "$toybox_bc" bc
+	do_make clean_config
 }
 
 debug() {
@@ -283,9 +252,11 @@ minsize() {
 	runtests "$minsize" "$CC" "$run_tests"
 }
 
-cflags="-Weverything -Wno-padded -Wno-switch-enum -Wno-format-nonliteral"
-cflags="$cflags -Wno-cast-align -Wno-missing-noreturn -Wno-disabled-macro-expansion"
-cflags="$cflags -Wno-unreachable-code -Wall -Wextra -pedantic -std=c99"
+clang_flags="-Weverything -Wno-padded -Wno-switch-enum -Wno-format-nonliteral"
+clang_flags="$clang_flags -Wno-cast-align -Wno-missing-noreturn -Wno-disabled-macro-expansion"
+clang_flags="$clang_flags -Wno-unreachable-code -Wno-unreachable-code-return"
+
+cflags="-Wall -Wextra -Werror -pedantic -std=c99"
 
 debug="$cflags -g -O0 -fno-omit-frame-pointer"
 release="$cflags -DNDEBUG -O3"
@@ -311,20 +282,17 @@ else
 	test_with_gcc=1
 fi
 
-if [ "$#" -gt 0 ]; then
-	toybox_repo="$1"
-	shift
-else
-	toybox_repo=""
-fi
-
 cd "$scriptdir"
 
-configure "$debug" "clang" ""
+build "$debug" "clang" ""
+
+header "Running math library under --standard"
+
+echo "quit" | bin/bc -ls
 
 version=$(make version)
 
-make clean_tests
+do_make clean_tests
 
 debug "clang" "$run_tests"
 release "clang" "$run_tests"
@@ -338,24 +306,20 @@ if [ "$test_with_gcc" -ne 0 ]; then
 	minsize "gcc" "$run_tests"
 fi
 
-if [ "$toybox_repo" != "" ]; then
-	toybox
-fi
-
-build "$release" "clang" "" make
-
 if [ "$run_tests" -ne 0 ]; then
+
+	build "$release" "clang" ""
 
 	karatsuba
 	vg
 
-	build "$release" "afl-gcc" "" make
+	build "$reldebug" "afl-gcc" ""
 
 	printf '\n'
 	printf 'Run %s/tests/randmath.py and the fuzzer.\n' "$scriptdir"
 	printf 'Then run the GitHub release script as follows:\n'
 	printf '\n'
-	printf '    <github_release> %s <msg> dist/ release.sh RELEASE.md \\\n' "$version"
+	printf '    <github_release> %s <msg> release.sh RELEASE.md \\\n' "$version"
 	printf '    tests/afl.py tests/randmath.py tests/bc/scripts/timeconst.bc\n'
 
 fi

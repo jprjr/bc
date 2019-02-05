@@ -260,7 +260,7 @@ static size_t bc_history_codePoint(const char *s, size_t len, uint32_t *cp) {
 static size_t bc_history_nextLen(const char *buf, size_t buf_len,
                                  size_t pos, size_t *col_len)
 {
-	unsigned int cp;
+	uint32_t cp;
 	size_t beg = pos;
 	size_t len = bc_history_codePoint(buf + pos, buf_len - pos, &cp);
 
@@ -294,7 +294,7 @@ static size_t bc_history_prevLen(const char *buf, size_t pos, size_t *col_len) {
 
 	while (pos > 0) {
 
-		unsigned int cp;
+		uint32_t cp;
 		size_t len = bc_history_prevCharLen(buf, pos);
 
 		pos -= len;
@@ -313,7 +313,7 @@ static size_t bc_history_prevLen(const char *buf, size_t pos, size_t *col_len) {
 /**
  * Read a Unicode code point from a file.
  */
-static BcStatus bc_history_readCode(int fd, char *buf, size_t buf_len,
+static BcStatus bc_history_readCode(char *buf, size_t buf_len,
                                     uint32_t *cp, size_t *nread)
 {
 	BcStatus s = BC_STATUS_EOF;
@@ -321,7 +321,7 @@ static BcStatus bc_history_readCode(int fd, char *buf, size_t buf_len,
 
 	assert(buf_len >= 1);
 
-	n = read(fd, buf, 1);
+	n = read(STDIN_FILENO, buf, 1);
 	if (n <= 0) goto err;
 
 	uchar byte = (uchar) buf[0];
@@ -330,17 +330,17 @@ static BcStatus bc_history_readCode(int fd, char *buf, size_t buf_len,
 
 		if ((byte & 0xE0) == 0xC0) {
 			assert(buf_len >= 2);
-			n = read(fd, buf + 1, 1);
+			n = read(STDIN_FILENO, buf + 1, 1);
 			if (n <= 0) goto err;
 		}
 		else if ((byte & 0xF0) == 0xE0) {
 			assert(buf_len >= 3);
-			n = read(fd, buf + 1, 2);
+			n = read(STDIN_FILENO, buf + 1, 2);
 			if (n <= 0) goto err;
 		}
 		else if ((byte & 0xF8) == 0xF0) {
 			assert(buf_len >= 3);
-			n = read(fd, buf + 1, 3);
+			n = read(STDIN_FILENO, buf + 1, 3);
 			if (n <= 0) goto err;
 		}
 		else {
@@ -751,7 +751,7 @@ static BcStatus bc_history_edit_end(BcHistory *h) {
  */
 static BcStatus bc_history_edit_next(BcHistory *h, bool dir) {
 
-	char* dup;
+	char *dup, *str;
 
 	if (h->history.len <= 1) return BC_STATUS_SUCCESS;
 
@@ -762,7 +762,7 @@ static BcStatus bc_history_edit_next(BcHistory *h, bool dir) {
 	bc_vec_replaceAt(&h->history, h->history.len - 1 - h->idx, &dup);
 
 	// Show the new entry.
-	h->idx += (unsigned int) (dir == BC_HISTORY_PREV ? 1 : -1);
+	h->idx += (size_t) (dir == BC_HISTORY_PREV ? 1 : -1);
 
 	if (h->idx == SIZE_MAX) {
 		h->idx = 0;
@@ -773,7 +773,7 @@ static BcStatus bc_history_edit_next(BcHistory *h, bool dir) {
 		return BC_STATUS_SUCCESS;
 	}
 
-	char* str = *((char**) bc_vec_item(&h->history, h->history.len - 1 - h->idx));
+	str = *((char**) bc_vec_item(&h->history, h->history.len - 1 - h->idx));
 	bc_vec_string(&h->buf, strlen(str), str);
 
 	h->pos = BC_HISTORY_BUF_LEN(h);
@@ -886,33 +886,17 @@ static BcStatus bc_history_swap(BcHistory *h) {
 static BcStatus bc_history_escape(BcHistory *h) {
 
 	BcStatus s = BC_STATUS_SUCCESS;
-	char seq[3];
+	char c, seq[3];
 
 	if (read(STDIN_FILENO, seq, 1) == -1) return s;
 
+	c = seq[0];
+
 	// ESC ? sequences.
-	if (seq[0] != '[' && seq[0] != '0') {
-
-		switch (seq[0]) {
-
-			case 'f':
-			{
-				s = bc_history_edit_wordEnd(h);
-				break;
-			}
-
-			case 'b':
-			{
-				s = bc_history_edit_wordStart(h);
-				break;
-			}
-
-			case 'd':
-			{
-				s = bc_history_edit_deleteNextWord(h);
-				break;
-			}
-		}
+	if (c != '[' && c != '0') {
+		if (c == 'f') s = bc_history_edit_wordEnd(h);
+		else if (c == 'b') s = bc_history_edit_wordStart(h);
+		else if (c == 'd') s = bc_history_edit_deleteNextWord(h);
 	}
 	else {
 
@@ -920,30 +904,21 @@ static BcStatus bc_history_escape(BcHistory *h) {
 			s = bc_vm_err(BC_ERROR_VM_IO_ERR);
 
 		// ESC [ sequences.
-		if (seq[0] == '[') {
+		if (c == '[') {
 
-			if (seq[1] >= '0' && seq[1] <= '9') {
+			c = seq[1];
+
+			if (c >= '0' && c <= '9') {
 
 				// Extended escape, read additional byte.
 				if (read(STDIN_FILENO, seq + 2, 1) == -1)
 					s = bc_vm_err(BC_ERROR_VM_IO_ERR);
 
-				if (seq[2] == '~') {
-
-					switch(seq[1]) {
-
-						// Delete key.
-						case '3':
-						{
-							s = bc_history_edit_delete(h);
-							break;
-						}
-					}
-				}
+				if (seq[2] == '~' && c == '3') s = bc_history_edit_delete(h);
 			}
 			else {
 
-				switch(seq[1]) {
+				switch(c) {
 
 					// Up.
 					case 'A':
@@ -998,22 +973,9 @@ static BcStatus bc_history_escape(BcHistory *h) {
 			}
 		}
 		// ESC O sequences.
-		else if (seq[0] == 'O') {
-
-			switch(seq[1]) {
-
-				case 'H':
-				{
-					s = bc_history_edit_home(h);
-					break;
-				}
-
-				case 'F':
-				{
-					s = bc_history_edit_end(h);
-					break;
-				}
-			}
+		else if (c == 'O') {
+			if (seq[1] == 'H') s = bc_history_edit_home(h);
+			else if (seq[1] == 'F') s = bc_history_edit_end(h);
 		}
 	}
 
@@ -1085,10 +1047,10 @@ static BcStatus bc_history_edit(BcHistory *h, const char *prompt) {
 
 		// Large enough for any encoding?
 		char cbuf[32];
-		unsigned int c;
-		size_t nread;
+		unsigned int c = 0;
+		size_t nread = 0;
 
-		s = bc_history_readCode(STDIN_FILENO, cbuf, sizeof(cbuf), &c, &nread);
+		s = bc_history_readCode(cbuf, sizeof(cbuf), &c, &nread);
 		if (s) return s;
 
 		switch (c) {
@@ -1103,10 +1065,6 @@ static BcStatus bc_history_edit(BcHistory *h, const char *prompt) {
 
 			case BC_ACTION_CTRL_C:
 			{
-#if BC_ENABLE_SIGNALS
-				size_t rlen, slen;
-#endif // BC_ENABLE_SIGNALS
-
 				s = bc_history_printCtrl(h, c);
 				if (s) return s;
 
@@ -1114,15 +1072,14 @@ static BcStatus bc_history_edit(BcHistory *h, const char *prompt) {
 				s = bc_history_reset(h);
 				if (s) break;
 
-				rlen = strlen(bc_program_ready_msg);
-				slen = vm->sig_len;
-
-				if (BC_HISTORY_WRITE(vm->sig_msg, slen) ||
-				    BC_HISTORY_WRITE(bc_program_ready_msg, rlen))
+				if (BC_HISTORY_WRITE(vm->sig_msg, vm->sig_len) ||
+				    BC_HISTORY_WRITE(bc_program_ready_msg, bc_program_ready_msg_len))
 				{
 					s = bc_vm_err(BC_ERROR_VM_IO_ERR);
 				}
 				else s = bc_history_refresh(h);
+
+				break;
 #else // BC_ENABLE_SIGNALS
 				if (BC_HISTORY_WRITE("\n", 1)) bc_vm_err(BC_ERROR_VM_IO_ERR);
 
@@ -1130,7 +1087,6 @@ static BcStatus bc_history_edit(BcHistory *h, const char *prompt) {
 				bc_vm_shutdown();
 				exit((((uchar) 1) << (CHAR_BIT - 1)) + SIGINT);
 #endif // BC_ENABLE_SIGNALS
-				break;
 			}
 
 			case BC_ACTION_BACKSPACE:
@@ -1200,9 +1156,7 @@ static BcStatus bc_history_edit(BcHistory *h, const char *prompt) {
 			{
 				bc_vec_npop(&h->buf, h->buf.len - h->pos);
 				bc_vec_pushByte(&h->buf, '\0');
-
 				s = bc_history_refresh(h);
-
 				break;
 			}
 

@@ -100,7 +100,7 @@ const char* const bc_err_msgs[] = {
 
 	"memory allocation error",
 	"I/O error",
-	"file is not text: %s",
+	"file is not ASCII: %s",
 	"path is a directory: %s",
 	// ** Exclude start. **
 	"Bad command-line option: '%c' (\"%s\")",
@@ -536,6 +536,7 @@ const BcLexKeyword bc_lex_kws[] = {
 	BC_LEX_KW_ENTRY("length", 6, true),
 	BC_LEX_KW_ENTRY("print", 5, false),
 	BC_LEX_KW_ENTRY("sqrt", 4, true),
+	BC_LEX_KW_ENTRY("abs", 3, false),
 	BC_LEX_KW_ENTRY("quit", 4, true),
 	BC_LEX_KW_ENTRY("read", 4, false),
 	BC_LEX_KW_ENTRY("else", 4, false),
@@ -557,13 +558,13 @@ const uint8_t bc_parse_exprs[] = {
 	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, true, true, false),
 	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, false, false, false),
 	BC_PARSE_EXPR_ENTRY(false, true, true, true, true, true, false, true),
-	BC_PARSE_EXPR_ENTRY(false, true, false, 0, 0, 0, 0, 0),
+	BC_PARSE_EXPR_ENTRY(true, false, true, false, 0, 0, 0, 0),
 #else // BC_ENABLE_EXTRA_MATH
 	BC_PARSE_EXPR_ENTRY(true, true, true, false, false, true, true, false),
 	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, false, true, true),
 	BC_PARSE_EXPR_ENTRY(false, false, false, false, false, false, false, false),
 	BC_PARSE_EXPR_ENTRY(false, false, true, true, true, true, true, false),
-	BC_PARSE_EXPR_ENTRY(true, false, true, false, 0, 0, 0, 0)
+	BC_PARSE_EXPR_ENTRY(true, true, false, true, false, 0, 0, 0)
 #endif // BC_ENABLE_EXTRA_MATH Remove
 };
 
@@ -623,8 +624,8 @@ const uint8_t dc_lex_tokens[] = {
 	BC_LEX_INVALID,
 #endif // BC_ENABLE_EXTRA_MATH Remove
 	BC_LEX_OP_MODULUS, BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_LPAREN,
-	BC_LEX_INVALID, BC_LEX_OP_MULTIPLY, BC_LEX_OP_PLUS, BC_LEX_INVALID,
-	BC_LEX_OP_MINUS, BC_LEX_INVALID, BC_LEX_INVALID,
+	BC_LEX_RPAREN, BC_LEX_OP_MULTIPLY, BC_LEX_OP_PLUS, BC_LEX_INVALID,
+	BC_LEX_OP_MINUS, BC_LEX_INVALID, BC_LEX_OP_DIVIDE,
 	BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_INVALID,
 	BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_INVALID,
 	BC_LEX_INVALID, BC_LEX_INVALID,
@@ -648,7 +649,7 @@ const uint8_t dc_lex_tokens[] = {
 	BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_SCALE_FACTOR, BC_LEX_INVALID,
 	BC_LEX_KEY_LENGTH, BC_LEX_INVALID, BC_LEX_INVALID, BC_LEX_INVALID,
 	BC_LEX_OP_POWER, BC_LEX_NEG, BC_LEX_INVALID,
-	BC_LEX_ASCIIFY, BC_LEX_INVALID, BC_LEX_CLEAR_STACK, BC_LEX_DUPLICATE,
+	BC_LEX_ASCIIFY, BC_LEX_KEY_ABS, BC_LEX_CLEAR_STACK, BC_LEX_DUPLICATE,
 	BC_LEX_KEY_ELSE, BC_LEX_PRINT_STACK, BC_LEX_INVALID,
 #if BC_ENABLE_EXTRA_MATH // Remove
 	BC_LEX_OP_RSHIFT,
@@ -660,7 +661,7 @@ const uint8_t dc_lex_tokens[] = {
 	BC_LEX_KEY_QUIT, BC_LEX_SWAP, BC_LEX_OP_ASSIGN, BC_LEX_INVALID,
 	BC_LEX_INVALID, BC_LEX_KEY_SQRT, BC_LEX_INVALID, BC_LEX_EXECUTE,
 	BC_LEX_INVALID, BC_LEX_STACK_LEVEL,
-	BC_LEX_LBRACE, BC_LEX_OP_MODEXP, BC_LEX_INVALID, BC_LEX_OP_DIVMOD,
+	BC_LEX_LBRACE, BC_LEX_OP_MODEXP, BC_LEX_RBRACE, BC_LEX_OP_DIVMOD,
 	BC_LEX_INVALID
 };
 
@@ -690,9 +691,9 @@ const uint8_t dc_parse_insts[] = {
 #endif // BC_ENABLE_EXTRA_MATH
 #endif // BC_ENABLED
 	BC_INST_INVALID,
-	BC_INST_INVALID, BC_INST_INVALID, BC_INST_REL_GT, BC_INST_INVALID,
+	BC_INST_INVALID, BC_INST_INVALID, BC_INST_REL_GT, BC_INST_REL_LT,
 	BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID, BC_INST_REL_GE,
-	BC_INST_INVALID, BC_INST_INVALID,
+	BC_INST_INVALID, BC_INST_REL_LE,
 	BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID,
 #if BC_ENABLED
 	BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID,
@@ -700,7 +701,7 @@ const uint8_t dc_parse_insts[] = {
 	BC_INST_INVALID, BC_INST_INVALID, BC_INST_INVALID,
 #endif // BC_ENABLED
 	BC_INST_IBASE, BC_INST_OBASE, BC_INST_SCALE, BC_INST_LENGTH, BC_INST_PRINT,
-	BC_INST_SQRT, BC_INST_QUIT, BC_INST_READ, BC_INST_INVALID,
+	BC_INST_SQRT, BC_INST_ABS, BC_INST_QUIT, BC_INST_READ, BC_INST_INVALID,
 	BC_INST_REL_EQ, BC_INST_MODEXP, BC_INST_DIVMOD, BC_INST_INVALID,
 	BC_INST_EXECUTE, BC_INST_PRINT_STACK, BC_INST_CLEAR_STACK,
 	BC_INST_STACK_LEN, BC_INST_DUPLICATE, BC_INST_SWAP, BC_INST_POP,
@@ -721,8 +722,12 @@ const BcNumBinaryOp bc_program_ops[] = {
 #endif // BC_ENABLE_EXTRA_MATH
 };
 
-const BcProgramBuiltIn bc_program_builtins[] = {
-	bc_program_len, bc_program_scale,
+const BcNumBinaryOpReq bc_program_opReqs[] = {
+	bc_num_powReq, bc_num_mulReq, bc_num_mulReq, bc_num_mulReq,
+	bc_num_addReq, bc_num_addReq,
+#if BC_ENABLE_EXTRA_MATH
+	bc_num_shiftReq, bc_num_shiftReq, bc_num_shiftReq,
+#endif // BC_ENABLE_EXTRA_MATH
 };
 
 const BcProgramUnary bc_program_unarys[] = {
@@ -740,6 +745,7 @@ const char bc_program_exprs_name[] = "<exprs>";
 
 const char bc_program_stdin_name[] = "<stdin>";
 const char bc_program_ready_msg[] = "ready for more input\n";
+const size_t bc_program_ready_msg_len = sizeof(bc_program_ready_msg) - 1;
 const char bc_program_esc_chars[] = "ab\\efnqrt";
 const char bc_program_esc_seqs[] = "\a\b\\\\\f\n\"\r\t";
 

@@ -29,6 +29,11 @@
 #include <dc.h>
 #include <vm.h>
 
+bool dc_lex_negCommand(BcLex *l) {
+	char c = l->buf[l->i];
+	return !BC_LEX_NUM_CHAR(c, 'F', false);
+}
+
 static BcStatus dc_lex_register(BcLex *l) {
 
 	BcStatus s = BC_STATUS_SUCCESS;
@@ -58,7 +63,8 @@ static BcStatus dc_lex_string(BcLex *l) {
 
 	for (; (c = l->buf[i]) && depth; ++i) {
 
-		if (i == l->i || l->buf[i - 1] != '\\') {
+		if (c == '\\') c = l->buf[++i];
+		else {
 			depth += (c == '[');
 			depth -= (c == ']');
 		}
@@ -148,14 +154,6 @@ BcStatus dc_lex_token(BcLex *l) {
 			c2 = l->buf[l->i];
 			if (BC_LEX_NUM_CHAR(c2, 'F', true)) s = bc_lex_number(l, c);
 			else s = bc_lex_invalidChar(l, c);
-			break;
-		}
-
-		case '/':
-		{
-			if (l->buf[l->i] == '*') s = bc_lex_comment(l);
-			else l->t = BC_LEX_OP_DIVIDE;
-
 			break;
 		}
 

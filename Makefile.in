@@ -41,7 +41,7 @@ BC_ENABLED = %%BC_ENABLED%%
 DC_ENABLED_NAME = DC_ENABLED
 DC_ENABLED = %%DC_ENABLED%%
 
-VERSION = 1.1-dev
+VERSION = 1.1.4
 
 GEN_DIR = gen
 GEN = strgen
@@ -80,9 +80,22 @@ BC = bc
 DC = dc
 BC_EXEC = $(BIN)/$(BC)
 DC_EXEC = $(BIN)/$(DC)
+EXEC_SUFFIX = %%EXECSUFFIX%%
 
-PREFIX = %%PREFIX%%
+MANUALS = manuals
+BC_MANPAGE_NAME = $(BC).1
+BC_MANPAGE = $(MANUALS)/$(BC_MANPAGE_NAME)
+BC_RONN = $(BC_MANPAGE).ronn
+DC_MANPAGE_NAME = $(DC).1
+DC_MANPAGE = $(MANUALS)/$(DC_MANPAGE_NAME)
+DC_RONN = $(DC_MANPAGE).ronn
+
+MANPAGE_INSTALL_ARGS = -Dm644
+
 DESTDIR = %%DESTDIR%%
+BINDIR = %%BINDIR%%
+MAN1DIR = %%MAN1DIR%%
+
 BC_ENABLE_SIGNALS = %%SIGNALS%%
 BC_ENABLE_HISTORY = %%HISTORY%%
 BC_ENABLE_REFERENCES = %%REFERENCES%%
@@ -93,22 +106,27 @@ RM = rm
 MKDIR = mkdir
 
 INSTALL = ./install.sh
+SAFE_INSTALL = ./safe-install.sh
 LINK = ./link.sh
 KARATSUBA = ./karatsuba.py
 
 VALGRIND_ARGS = --error-exitcode=1 --leak-check=full --show-leak-kinds=all --errors-for-leak-kinds=all
+RONN_ARGS = --roff --organization="Gavin D. Howard" --manual="General Commands Manual"
 
 BC_NUM_KARATSUBA_LEN = %%KARATSUBA_LEN%%
 
 CPPFLAGS1 = %%CPPFLAGS%%
 CPPFLAGS2 = $(CPPFLAGS1) -D$(BC_ENABLED_NAME)=$(BC_ENABLED) -D$(DC_ENABLED_NAME)=$(DC_ENABLED)
-CPPFLAGS3 = $(CPPFLAGS2) -I./include/ -D_POSIX_C_SOURCE=200809L -DVERSION=$(VERSION)
-CPPFLAGS4 = $(CPPFLAGS3) -DBC_NUM_KARATSUBA_LEN=$(BC_NUM_KARATSUBA_LEN)
-CPPFLAGS5 = $(CPPFLAGS4) -DBC_ENABLE_REFERENCES=$(BC_ENABLE_REFERENCES)
-CPPFLAGS6 = $(CPPFLAGS5) -D$(BC_ENABLE_EXTRA_MATH_NAME)=$(BC_ENABLE_EXTRA_MATH)
-CPPFLAGS = $(CPPFLAGS6) -DBC_ENABLE_SIGNALS=$(BC_ENABLE_SIGNALS) -DBC_ENABLE_HISTORY=$(BC_ENABLE_HISTORY)
+CPPFLAGS3 = $(CPPFLAGS2) -I./include/ -DVERSION=$(VERSION)
+CPPFLAGS4 = $(CPPFLAGS3) -D_POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE=700
+CPPFLAGS5 = $(CPPFLAGS4) -DBC_NUM_KARATSUBA_LEN=$(BC_NUM_KARATSUBA_LEN)
+CPPFLAGS6 = $(CPPFLAGS5) -DBC_ENABLE_REFERENCES=$(BC_ENABLE_REFERENCES)
+CPPFLAGS7 = $(CPPFLAGS6) -D$(BC_ENABLE_EXTRA_MATH_NAME)=$(BC_ENABLE_EXTRA_MATH)
+CPPFLAGS = $(CPPFLAGS7) -DBC_ENABLE_SIGNALS=$(BC_ENABLE_SIGNALS) -DBC_ENABLE_HISTORY=$(BC_ENABLE_HISTORY)
 CFLAGS = $(CPPFLAGS) %%CFLAGS%%
 LDFLAGS = %%LDFLAGS%%
+
+HOSTCFLAGS = %%HOSTCFLAGS%%
 
 CC = %%CC%%
 HOSTCC = %%HOSTCC%%
@@ -119,7 +137,7 @@ all: make_bin $(DC_HELP_O) $(BC_HELP_O) $(BC_LIB_O) $(BC_LIB2_O) $(BC_LIB3_O) $(
 	%%LINK%%
 
 $(GEN_EXEC):
-	$(HOSTCC) $(CFLAGS) -o $(GEN_EXEC) $(GEN_C)
+	$(HOSTCC) $(HOSTCFLAGS) -o $(GEN_EXEC) $(GEN_C)
 
 $(BC_LIB_C): $(GEN_EXEC) $(BC_LIB)
 	$(GEN_EMU) $(GEN_EXEC) $(BC_LIB) $(BC_LIB_C) bc_lib bc.h bc_lib_name $(BC_ENABLED_NAME) 1
@@ -143,30 +161,27 @@ help:
 	@printf '    all (default)   builds %%EXECUTABLES%%\n'
 	@printf '    clean           removes all build files\n'
 	@printf '    clean_config    removes all build files as well as the generated Makefile\n'
-	@printf '    clean_tests     removes all build files as well as generated tests\n'
-	@printf '    install         installs to %s%s/bin\n' "$(DESTDIR)" "$(PREFIX)"
+	@printf '    clean_tests     removes all build files, the generated Makefile,\n
+	@printf '                    and generated tests\n'
+	@printf '    install         installs binaries to "%s%s"\n' "$(DESTDIR)" "$(BINDIR)"
+	@printf '                    and (if enabled) manpages to "%s%s"\n' "$(DESTDIR)" "$(MAN1DIR)"
 	@printf '    karatsuba       runs the karatsuba script (requires Python 3)\n'
 	@printf '    karatsuba_test  runs the karatsuba script while running tests\n'
 	@printf '                    (requires Python 3)\n'
-	@printf '    uninstall       uninstalls from %s%s/bin\n' "$(DESTDIR)" "$(PREFIX)"
+	@printf '    uninstall       uninstalls binaries from "%s%s"\n' "$(DESTDIR)" "$(BINDIR)"
+	@printf '                    and (if enabled) manpages from "%s%s"\n' "$(DESTDIR)" "$(MAN1DIR)"
 	@printf '    test            runs the test suite\n'
-	@printf '    test_all        runs the test suite as well as the Linux timeconst.bc test,\n'
-	@printf '                    if it exists and bc has been built\n'
 	@printf '    test_bc         runs the bc test suite, if bc has been built\n'
 	@printf '    test_dc         runs the dc test suite, if dc has been built\n'
 	@printf '    timeconst       runs the test on the Linux timeconst.bc script,\n'
 	@printf '                    if it exists and bc has been built\n'
 	@printf '    valgrind        runs the test suite through valgrind\n'
-	@printf '    valgrind_all    runs the test suite, and the Linux timeconst.bc test,\n'
-	@printf '                    if it exists and bc has been built, through valgrind\n'
 	@printf '    valgrind_bc     runs the bc test suite, if bc has been built,\n'
 	@printf '                    through valgrind\n'
 	@printf '    valgrind_dc     runs the dc test suite, if dc has been built,\n'
 	@printf '                    through valgrind\n'
 
-test_all: test timeconst
-
-test: test_bc test_dc
+test: test_bc timeconst test_dc
 
 test_bc:
 	%%BC_TEST%%
@@ -202,6 +217,10 @@ libcname:
 
 extra_math:
 	@printf '%s' "$(BC_ENABLE_EXTRA_MATH)"
+
+manpages:
+	ronn $(RONN_ARGS) $(BC_RONN)
+	ronn $(RONN_ARGS) $(DC_RONN)
 
 clean:
 	@printf 'Cleaning files...\n'
@@ -239,15 +258,31 @@ clean_tests: clean clean_config
 	@$(RM) -f tests/bc/parse.txt tests/bc/parse_results.txt
 	@$(RM) -f tests/bc/print.txt tests/bc/print_results.txt
 	@$(RM) -f tests/bc/bessel.txt tests/bc/bessel_results.txt
-	@$(RM) -f .log_test.txt .log_bc.txt
+	@$(RM) -f .log_*.txt
 	@$(RM) -f .math.txt .results.txt .ops.txt
 	@$(RM) -f .test.txt
 
-install:
-	$(INSTALL) $(DESTDIR)$(PREFIX)/$(BIN) $(BIN)
+install_bc_manpage:
+	$(SAFE_INSTALL) $(MANPAGE_INSTALL_ARGS) $(BC_MANPAGE) $(DESTDIR)$(MAN1DIR)/$(BC_MANPAGE_NAME)
 
-uninstall:
-	$(RM) -f $(DESTDIR)$(PREFIX)/$(BC_EXEC)
-	$(RM) -f $(DESTDIR)$(PREFIX)/$(DC_EXEC)
+install_dc_manpage:
+	$(SAFE_INSTALL) $(MANPAGE_INSTALL_ARGS) $(DC_MANPAGE) $(DESTDIR)$(MAN1DIR)/$(DC_MANPAGE_NAME)
+
+install:%%INSTALL_PREREQS%%
+	$(INSTALL) $(DESTDIR)$(BINDIR) $(BIN) "$(EXEC_SUFFIX)"
+
+uninstall_bc_manpage:
+	$(RM) -f $(DESTDIR)$(MAN1DIR)/$(BC_MANPAGE_NAME)
+
+uninstall_bc:
+	$(RM) -f $(DESTDIR)$(BINDIR)/$(BC)$(EXEC_SUFFIX)
+
+uninstall_dc_manpage:
+	$(RM) -f $(DESTDIR)$(MAN1DIR)/$(DC_MANPAGE_NAME)
+
+uninstall_dc:
+	$(RM) -f $(DESTDIR)$(BINDIR)/$(DC)$(EXEC_SUFFIX)
+
+uninstall:%%UNINSTALL_MAN_PREREQS%%%%UNINSTALL_PREREQS%%
 
 .PHONY: help clean clean_tests install uninstall test

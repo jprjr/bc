@@ -98,15 +98,17 @@ BcStatus bc_lex_token(BcLex *l);
 
 #define BC_PARSE_NO_EXEC(p) ((p)->flags.len != 1 || BC_PARSE_TOP_FLAG(p) != 0)
 
-#define BC_PARSE_VALID_END_TOKEN(t)                                            \
-	((t) == BC_LEX_SCOLON || (t) == BC_LEX_KEY_ELSE || (t) == BC_LEX_RBRACE || \
-	 (t) == BC_LEX_KEY_IF || (t) == BC_LEX_NLINE || (t) == BC_LEX_KEY_FOR ||   \
-	 (t) == BC_LEX_KEY_WHILE || (t) == BC_LEX_EOF)
+#define BC_PARSE_DELIMITER(t) \
+	((t) == BC_LEX_SCOLON || (t) == BC_LEX_NLINE || (t) == BC_LEX_EOF)
+
+#define BC_PARSE_BLOCK_STMT(f) \
+	((f) & (BC_PARSE_FLAG_ELSE | BC_PARSE_FLAG_LOOP_INNER))
 
 #define BC_PARSE_OP(p, l) (((p) & ~(BC_LEX_CHAR_MSB(1))) | (BC_LEX_CHAR_MSB(l)))
 
-#define BC_PARSE_OP_LEFT(op) ((op) & BC_LEX_CHAR_MSB(1))
-#define BC_PARSE_OP_PREC(op) ((op) & ~(BC_LEX_CHAR_MSB(1)))
+#define BC_PARSE_OP_DATA(t) bc_parse_ops[((t) - BC_LEX_OP_INC)]
+#define BC_PARSE_OP_LEFT(op) (BC_PARSE_OP_DATA(op) & BC_LEX_CHAR_MSB(1))
+#define BC_PARSE_OP_PREC(op) (BC_PARSE_OP_DATA(op) & ~(BC_LEX_CHAR_MSB(1)))
 
 #define BC_PARSE_EXPR_ENTRY(e1, e2, e3, e4, e5, e6, e7, e8)  \
 	(((e1) << 7) | ((e2) << 6) | ((e3) << 5) | ((e4) << 4) | \
@@ -119,8 +121,11 @@ BcStatus bc_lex_token(BcLex *l);
 #define BC_PARSE_LEAF(prev, bin_last, rparen) \
 	(!(bin_last) && ((rparen) || bc_parse_inst_isLeaf(prev)))
 #define BC_PARSE_INST_VAR(t) \
-	((t) == BC_INST_VAR || (t) == BC_INST_ARRAY_ELEM || (t) == BC_INST_LAST || \
-	 (t) == BC_INST_SCALE || (t) == BC_INST_IBASE || (t) == BC_INST_OBASE)
+	((t) >= BC_INST_VAR && (t) <= BC_INST_SCALE && (t) != BC_INST_ARRAY)
+
+#define BC_PARSE_PREV_PREFIX(p) \
+	((p) >= BC_INST_INC_PRE && (p) <= BC_INST_BOOL_NOT)
+#define BC_PARSE_OP_PREFIX(t) ((t) == BC_LEX_OP_BOOL_NOT || (t) == BC_LEX_NEG)
 
 // We can calculate the conversion between tokens and exprs by subtracting the
 // position of the first operator in the lex enum and adding the position of

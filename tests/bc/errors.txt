@@ -100,6 +100,7 @@ define x(a[]) { return a[]; }
 define x(*a) { return a; }
 define x(a) return a;
 while e!=0 { i+=1 }
+while (e!=0) { i+=1 } if (x) x
 for i=0;i<2;++i { c+=i; }
 for (i=0;i<2,++i) { c+=i; }
 for (i=0,i<2;++i) { c+=i; }
@@ -173,6 +174,7 @@ print a[]
 print a[], "e"
 print;
 print 1,2 print 45
+print "s" "4"
 }
 while (x != 0) { break 4; }
 while (x != 0) { continue 4; }
@@ -186,7 +188,15 @@ define r() { auto a[], 4; return a[0]; }
 define s() { auto a[ 4; return a[0]; }
 define void y() { return (1); }
 print uint(0)
+x$if(x) x else x
 bytes(1) + 4
 3 / 0.00000000000000
 ibase = 100
+length("string")
+abs("string")
+abs(a[])
+scale("string")
+scale(b[])
+sqrt("string")
+sqrt(c[])
 read()

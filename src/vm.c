@@ -128,7 +128,7 @@ BcStatus bc_vm_posixError(BcError e, size_t line, ...) {
 	bc_vm_printError(e, p ? bc_err_fmt : bc_warn_fmt, line, args);
 	va_end(args);
 
-	return (!!p) ? BC_STATUS_ERROR : BC_STATUS_SUCCESS;
+	return p ? BC_STATUS_ERROR : BC_STATUS_SUCCESS;
 }
 
 static BcStatus bc_vm_envArgs(void) {
@@ -184,6 +184,21 @@ static size_t bc_vm_envLen(const char *var) {
 	else len = BC_NUM_PRINT_WIDTH;
 
 	return len;
+}
+
+void bc_vm_shutdown(void) {
+#if BC_ENABLE_HISTORY
+	// This must always run to ensure that the terminal is back to normal.
+	bc_history_free(&vm->history);
+#endif // BC_ENABLE_HISTORY
+#ifndef NDEBUG
+	bc_vec_free(&vm->files);
+	bc_vec_free(&vm->exprs);
+	bc_program_free(&vm->prog);
+	bc_parse_free(&vm->prs);
+	free(vm->env_args);
+	free(vm);
+#endif // NDEBUG
 }
 
 static void bc_vm_exit(BcError e) {
@@ -242,10 +257,14 @@ static void bc_vm_clean() {
 	BcVec *fns = &prog->fns;
 	BcFunc *f = bc_vec_item(fns, BC_PROG_MAIN);
 	BcInstPtr *ip = bc_vec_item(&prog->stack, 0);
-	bool good = BC_IS_BC;
+	bool good = false;
+
+#if BC_ENABLED
+	if (BC_IS_BC) good = !BC_PARSE_NO_EXEC(&vm->prs);
+#endif // BC_ENABLED
 
 #if DC_ENABLED
-	if (!good) {
+	if (!BC_IS_BC) {
 
 		size_t i;
 
@@ -258,8 +277,20 @@ static void bc_vm_clean() {
 		if (i == vm->prog.vars.len) {
 
 			for (i = 0; i < vm->prog.arrs.len; ++i) {
+
 				BcVec *arr = bc_vec_item(&vm->prog.arrs, i);
-				if (arr->len != 1) break;
+				size_t j;
+
+				assert(arr->len == 1);
+
+				arr = bc_vec_top(arr);
+
+				for (j = 0; j < arr->len; ++j) {
+					BcNum *n = bc_vec_item(arr, j);
+					if (BC_PROG_STR(n)) break;
+				}
+
+				if (j != arr->len) break;
 			}
 
 			good = (i == vm->prog.arrs.len);
@@ -270,9 +301,6 @@ static void bc_vm_clean() {
 	// If this condition is true, we can get rid of strings,
 	// constants, and code. This is an idea from busybox.
 	if (good && prog->stack.len == 1 && !prog->results.len &&
-#if BC_ENABLED
-	    !BC_PARSE_NO_EXEC(&vm->prs) &&
-#endif // BC_ENABLED
 	    ip->idx == f->code.len)
 	{
 #if BC_ENABLED
@@ -376,7 +404,7 @@ static BcStatus bc_vm_stdin(void) {
 				else if (c == '[') string += 1;
 			}
 
-			if (!string && notend) {
+			if (BC_IS_BC && !string && notend) {
 
 				c2 = str[i + 1];
 
@@ -465,21 +493,6 @@ static BcStatus bc_vm_exec(void) {
 	return s;
 }
 
-void bc_vm_shutdown(void) {
-#if BC_ENABLE_HISTORY
-	// This must always run to ensure that the terminal is back to normal.
-	bc_history_free(&vm->history);
-#endif // BC_ENABLE_HISTORY
-#ifndef NDEBUG
-	bc_vec_free(&vm->files);
-	bc_vec_free(&vm->exprs);
-	bc_program_free(&vm->prog);
-	bc_parse_free(&vm->prs);
-	free(vm->env_args);
-	free(vm);
-#endif // NDEBUG
-}
-
 BcStatus bc_vm_boot(int argc, char *argv[], const char *env_len) {
 
 	BcStatus s;
@@ -524,7 +537,7 @@ BcStatus bc_vm_boot(int argc, char *argv[], const char *env_len) {
 	vm->flags |= isatty(STDIN_FILENO) ? BC_FLAG_TTYIN : 0;
 	vm->flags |= BC_TTYIN && isatty(STDOUT_FILENO) ? BC_FLAG_I : 0;
 
-	vm->max_ibase = BC_S || BC_W ? BC_NUM_MAX_POSIX_IBASE : BC_NUM_MAX_IBASE;
+	vm->max_ibase = BC_IS_BC && !BC_S && !BC_W ? BC_NUM_MAX_POSIX_IBASE : BC_NUM_MAX_IBASE;
 
 	if (BC_I && !(vm->flags & BC_FLAG_Q)) bc_vm_info(NULL);
 
