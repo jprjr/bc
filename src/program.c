@@ -104,7 +104,7 @@ static char* bc_program_name(const char *restrict code, size_t *restrict bgn) {
 	return s;
 }
 
-void bc_program_prepGlobals(BcProgram *p) {
+static void bc_program_prepGlobals(BcProgram *p) {
 	size_t val = BC_PROG_GLOBAL(&p->scale);
 	bc_vec_push(&p->scale, &val);
 	val = BC_PROG_GLOBAL(&p->ib_t);
