@@ -67,7 +67,6 @@ define comb(n,r){
 }
 define log(x,b){
 	auto p
-	ibase=A
 	if(scale<K)scale=K
 	if(scale(x)>scale)scale=scale(x)
 	scale*=2
@@ -77,12 +76,10 @@ define log(x,b){
 define l2(x){return log(x,2)}
 define l10(x){return log(x,A)}
 define pi(s){
-	auto v
 	if(s==0)return 3
 	s=abs(s)$
 	scale=s+1
-	v=4*a(1)
-	return v@s
+	return (4*a(1))@s
 }
 define void output(x,b){
 	obase=b
@@ -92,7 +89,6 @@ define void hex(x){output(x,G)}
 define void binary(x){output(x,2)}
 define ubytes(x){
 	auto p,i
-	ibase=A
 	x=abs(x)$
 	i=2^8
 	for(p=1;i-1<x;p*=2){i*=i}
@@ -104,7 +100,6 @@ define sbytes(x){
 	x=abs(x)
 	x=x$
 	n=ubytes(x)
-	ibase=A
 	p=2^(n*8-1)
 	if(x>p||(!z&&x==p))n*=2
 	return n
@@ -124,7 +119,6 @@ define void output_byte(x,i){
 }
 define void output_uint(x,n){
 	auto i
-	ibase=A
 	for(i=n-1;i>=0;--i){
 		output_byte(x,i)
 		if(i)print" "
