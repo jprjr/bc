@@ -82,26 +82,18 @@ define pi(s){
 	return (4*a(1))@s
 }
 define r2d(x){
-	auto r,i,s
+	auto s
 	s=scale
 	scale+=5
-	i=ibase
 	ibase=A
-	r=x*180/pi(scale)
-	ibase=i
-	scale=s
-	return r@s
+	return (x*180/pi(scale))@s
 }
 define d2r(x){
-	auto r,i,s
+	auto s
 	s=scale
 	scale+=5
-	i=ibase
 	ibase=A
-	r=x*pi(scale)/180
-	ibase=i
-	scale=s
-	return r@s
+	return (x*pi(scale)/180)@s
 }
 define void output(x,b){
 	obase=b
